@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>You Are Chosen</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+      --bg-gradient: radial-gradient(circle at top, rgba(34, 211, 238, 0.35), rgba(8, 47, 73, 1));
+        }
+        body {
+      font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+      background: var(--bg-gradient);
+      color: #fff;
+      overflow-x: hidden;
+    }
+    .floating-bubble {
+      position: absolute;
+      width: 260px;
+      height: 260px;
+      border-radius: 50%;
+      filter: blur(20px);
+      opacity: 0.5;
+      animation: float 18s ease-in-out infinite;
+      pointer-events: none;
+    }
+    .floating-bubble:nth-child(1) { top: 5%; left: 10%; background: rgba(14, 165, 233, 0.45); }
+    .floating-bubble:nth-child(2) { bottom: 8%; right: 5%; background: rgba(6, 182, 212, 0.4); animation-duration: 22s; }
+    .floating-bubble:nth-child(3) { top: 40%; right: 15%; background: rgba(56, 189, 248, 0.35); animation-duration: 26s; }
+    .sparkles span {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.8);
+      animation: twinkle 6s ease-in-out infinite;
+      filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.4));
+    }
+    @keyframes float {
+      0% { transform: translate3d(0,0,0) scale(1); }
+      50% { transform: translate3d(30px,-30px,0) scale(1.05); }
+      100% { transform: translate3d(-20px,20px,0) scale(1); }
+    }
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.3; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1.2); }
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(18px);
+    }
+    .btn {
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 15px 30px rgba(15, 23, 42, 0.25);
+    }
+    .hidden {
+      display: none;
+        }
+    </style>
+</head>
+<body class="relative">
+  <div class="floating-bubble"></div>
+  <div class="floating-bubble"></div>
+  <div class="floating-bubble"></div>
+  <div class="sparkles" id="sparkles"></div>
+
+  <main class="relative z-10 min-h-screen flex items-center justify-center px-4 py-10">
+    <div id="app" class="w-full max-w-4xl card rounded-3xl shadow-2xl p-8 md:p-12 text-center space-y-8"></div>
+  </main>
+
+  <div id="modal-root"></div>
+
+<script>
+    const BABY_NAME = "Rhythm";
+    const API_KEY = "AIzaSyDFZKklIkscc3c2aWccx9K8KItk8zVf3bo";
+    const MODEL_NAME = "gemini-2.5-flash-preview-09-2025";
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
+    const styles = [
+      { id: 'fun', name: 'The Fun One', description: 'Chaos commander of giggles, glitter, and spontaneous sundae runs.', template: (name, role) => `${name} hereby pledges maximum silliness, unlimited glitter ammo, and surprise pancake parades whenever ${BABY_NAME} yawns. I will champion every giggle, invent new holidays, and sneak in emergency freeze pops. Signed, your ${role.toLowerCase()} in chief of fun.` },
+      { id: 'wise', name: 'The Wise Mentor', description: 'Keeper of bedtime stories, pep talks, and wildly ambitious dreams.', template: (name, role) => `${name} promises to stockpile wisdom snacks, cosmic metaphors, and endless patience. I’ll decode big feelings, cheer on wild dreams, and make sure ${BABY_NAME} knows their ${role.toLowerCase()} believes in magic and spreadsheets.` },
+      { id: 'spoiler', name: 'The Spoiler', description: 'Secret supplier of toys, snacks, and unapproved adventures.', template: (name, role) => `${name} swears to smuggle glittery gadgets, host midnight cereal festivals, and pretend bedtimes are a myth. This ${role.toLowerCase()} vows to ruin diets, amplify birthdays, and keep the candy stash overflowing.` },
+      { id: 'secret', name: 'The Secret Keeper', description: 'Guardian of whispers, diaries, and late-night chismis.', template: (name, role) => `${name} vows to guard secret handshakes, emergency karaoke playlists, and every whispered dream. As ${BABY_NAME}'s chosen confidant, this ${role.toLowerCase()} promises zero judgment and infinite pinky swears.` },
+      { id: 'hero', name: 'The Emergency Contact', description: 'First responder for hugs, snacks, and surprise rescues.', template: (name, role) => `${name} keeps a go-bag of snacks, plushies, and backup pajamas. When chaos strikes, this ${role.toLowerCase()} arrives with playlists, calm hugs, and a plan B (plus C). ${BABY_NAME}, your hotline is always on.` }
+    ];
+
+    const styleGuidance = {
+      "The Fun One": "Keep the tone bubbly, mischievous, and adventure-packed. Mention games, glitter, and new silly traditions.",
+      "The Wise Mentor": "Sound thoughtful and encouraging. Include themes of guidance, curiosity, and cheering on big dreams.",
+      "The Spoiler": "Lean into over-the-top generosity, surprise treats, toy smuggling, and bedtime rule-breaking.",
+      "The Secret Keeper": "Write in an intimate whisper. Talk about secrets, trust, late-night chats, and zero judgment.",
+      "The Emergency Contact": "Be heroic and calm. Mention go-bags, midnight rescues, snacks-on-call, and organized chaos."
+    };
+
+    const state = {
+      screen: 'landing', // landing | form | styles | loading | manifesto | declined
+      name: '',
+      role: '',
+      email: '',
+      emailSent: false,
+      selectedStyle: null,
+      manifesto: ''
+    };
+
+    const appEl = document.getElementById('app');
+    const modalRoot = document.getElementById('modal-root');
+
+    function createSparkles() {
+      const container = document.getElementById('sparkles');
+      container.innerHTML = '';
+      Array.from({ length: 30 }).forEach(() => {
+        const dot = document.createElement('span');
+        dot.style.top = `${Math.random() * 100}%`;
+        dot.style.left = `${Math.random() * 100}%`;
+        dot.style.animationDelay = `${Math.random() * 4}s`;
+        container.appendChild(dot);
+      });
+    }
+
+    function triggerConfetti() {
+      if (typeof confetti !== 'function') return;
+      confetti({
+        particleCount: 120,
+        spread: 90,
+        origin: { y: 0.3 },
+        colors: ['#22d3ee', '#38bdf8', '#bfdbfe', '#99f6e4']
+      });
+    }
+
+    function setState(partial) {
+      Object.assign(state, partial);
+      render();
+    }
+
+    function render() {
+      switch (state.screen) {
+        case 'landing':
+          renderLanding();
+          break;
+        case 'form':
+          renderForm();
+                break;
+        case 'styles':
+          renderStyles();
+                break;
+        case 'loading':
+          renderLoading();
+                break;
+            case 'manifesto':
+          renderManifesto();
+                break;
+            case 'declined':
+          renderDeclined();
+                break;
+        }
+    }
+
+    function renderLanding() {
+      appEl.innerHTML = `
+        <p class="text-sm uppercase tracking-[0.5em] text-cyan-200 animate-pulse">summons</p>
+        <h1 class="text-4xl md:text-5xl font-bold leading-tight">You Are Chosen to Be a Godparent!</h1>
+        <p class="text-white/80 max-w-2xl mx-auto">
+          The council of sleepy parents has whispered your name. This sacred (and slightly sparkly) assignment needs your heart, your humor, and your emergency snack bag. Ready to accept the cutest mission ever?
+        </p>
+        <div class="mt-8 grid gap-4 md:grid-cols-2">
+          <button id="btn-accept" class="btn px-6 py-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 font-semibold">
+            YES! It is my calling
+                </button>
+          <button id="btn-reject" class="btn px-6 py-4 rounded-full bg-white/5 border border-cyan-200/40 font-semibold text-cyan-100">
+            Reject Politely 😅
+                </button>
+            </div>
+        `;
+      document.getElementById('btn-accept').onclick = () => {
+        triggerConfetti();
+        setState({ screen: 'form' });
+      };
+      document.getElementById('btn-reject').onclick = () => {
+        showRejectModal();
+      };
+    }
+
+    function showRejectModal() {
+      modalRoot.innerHTML = `
+        <div class="fixed inset-0 bg-black/60 flex items-center justify-center px-4 z-50">
+          <div class="bg-white rounded-3xl p-8 max-w-md w-full text-center text-slate-800 shadow-2xl">
+            <h3 class="text-2xl font-bold mb-3">We totally understand 😇</h3>
+            <p class="text-slate-500 mb-6">
+              Destiny will find another brave soul. Thank you for being honest and lovely.
+            </p>
+            <button id="modal-close" class="px-6 py-3 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 text-white font-semibold">
+              Start Over
+            </button>
+          </div>
+        </div>
+      `;
+      document.getElementById('modal-close').onclick = () => {
+        modalRoot.innerHTML = '';
+        setState({ screen: 'landing', name: '', role: '', manifesto: '', selectedStyle: null, emailSent: false });
+        setState({ screen: 'landing', name: '', role: '', manifesto: '', selectedStyle: null, emailSent: false });
+      };
+    }
+
+    function renderForm() {
+      appEl.innerHTML = `
+        <h2 class="text-3xl md:text-4xl font-bold">Tell us about you!</h2>
+        <p class="text-white/80 max-w-xl mx-auto">
+          This will personalize your sacred manifesto. Pinky promise it’s worth it.
+        </p>
+        <div class="grid md:grid-cols-2 gap-4 mt-2">
+          ${['Ninang', 'Ninong'].map(role => `
+            <button data-role="${role}" class="role-card px-6 py-5 rounded-3xl border transition transform hover:-translate-y-1 ${state.role === role ? 'border-cyan-200 bg-cyan-100/20 shadow-lg shadow-cyan-900/20' : 'border-white/20 bg-white/5'}">
+              <p class="text-sm uppercase tracking-[0.4em] text-white/70">${role === 'Ninang' ? 'Godmother' : 'Godfather'}</p>
+              <p class="text-2xl font-bold mt-1">${role}</p>
+              <p class="text-white/80 text-sm mt-2">${role === 'Ninang' ? 'Guardian of sparkles and warm hugs.' : 'Protector of snacks and pep talks.'}</p>
+            </button>
+          `).join('')}
+        </div>
+        <div class="space-y-4 max-w-md mx-auto text-left">
+          <label class="block text-sm font-semibold text-white/80">Your Name</label>
+          <input id="name-input" type="text" placeholder="e.g., Ninang Sam" class="w-full px-4 py-3 rounded-2xl bg-white/10 border border-white/20 focus:outline-none focus:ring-2 focus:ring-cyan-300" value="${state.name}">
+        </div>
+        <div class="space-y-2 max-w-md mx-auto text-left">
+          <label class="block text-sm font-semibold text-white/80">Your Email</label>
+          <input id="email-input" type="email" placeholder="you@example.com" class="w-full px-4 py-3 rounded-2xl bg-white/10 border border-white/20 focus:outline-none focus:ring-2 focus:ring-cyan-300" value="${state.email}">
+          <p class="text-xs text-white/70">We’ll email you a copy of your manifesto as soon as it’s created.</p>
+        </div>
+        <button id="continue-style" class="btn w-full md:w-auto px-8 py-4 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 font-semibold disabled:opacity-40">
+          Continue
+            </button>
+        `;
+      document.querySelectorAll('.role-card').forEach(card => {
+        card.onclick = () => {
+          setState({ role: card.dataset.role });
+        };
+      });
+      document.getElementById('continue-style').onclick = () => {
+        const nameValue = document.getElementById('name-input').value.trim();
+        const emailValue = document.getElementById('email-input').value.trim();
+        if (!nameValue) {
+          alert('Please enter your name.');
+          return;
+        }
+        if (!state.role) {
+          alert('Please select Ninang or Ninong.');
+          return;
+        }
+        if (!emailValue || !/^\S+@\S+\.\S+$/.test(emailValue)) {
+          alert('Please enter a valid email address.');
+          return;
+        }
+        setState({ name: nameValue, email: emailValue, screen: 'styles' });
+      };
+    }
+
+    function renderStyles() {
+      appEl.innerHTML = `
+        <p class="text-sm uppercase tracking-[0.5em] text-cyan-200">choose your vibe</p>
+        <h2 class="text-3xl md:text-4xl font-bold">Welcome, ${state.role} ${state.name}! Pick your godparent style.</h2>
+        <div class="grid gap-4 md:grid-cols-2 text-left">
+          ${styles.map(style => `
+            <button class="style-card rounded-3xl p-6 bg-white/10 border border-cyan-200/30 hover:border-cyan-100/70 transition shadow-md shadow-cyan-900/10" data-style="${style.id}">
+              <div class="text-sm uppercase tracking-[0.3em] text-cyan-100 mb-2">${style.name}</div>
+              <p class="text-white/90 text-base">${style.description}</p>
+            </button>
+          `).join('')}
+            </div>
+        `;
+      document.querySelectorAll('.style-card').forEach(card => {
+        card.onclick = () => {
+          const styleId = card.dataset.style;
+          const selected = styles.find(s => s.id === styleId);
+          if (selected) {
+            triggerConfetti();
+            setState({ selectedStyle: selected, screen: 'loading', emailSent: false });
+            generateManifesto(selected).then(manifesto => {
+              setState({ manifesto, screen: 'manifesto' });
+              sendManifestoEmail(manifesto);
+            }).catch(error => {
+              console.error('Manifesto generation failed:', error);
+              const fallback = selected.template(state.name, state.role);
+              setState({
+                manifesto: `${fallback}\n\n(P.S. The cosmic servers took a nap, so this vow was crafted locally.)`,
+                screen: 'manifesto'
+              });
+              sendManifestoEmail(fallback);
+            });
+          }
+        };
+      });
+    }
+
+    function renderLoading() {
+      appEl.innerHTML = `
+        <div class="flex flex-col items-center space-y-4 py-16">
+          <div class="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
+          <p class="text-lg text-white/80">We’re bottling the perfect vows for ${BABY_NAME}...</p>
+        </div>
+      `;
+    }
+
+    function renderManifesto() {
+      const formattedManifesto = formatManifesto(state.manifesto);
+      appEl.innerHTML = `
+        <h2 class="text-3xl md:text-4xl font-bold">Welcome, ${state.selectedStyle.name}!</h2>
+        <p class="text-white/70">A heartfelt note from ${state.role} ${state.name} to ${BABY_NAME}.</p>
+        <div class="text-left bg-cyan-50/5 border border-cyan-100/30 rounded-3xl p-6 md:p-8 text-white/95 space-y-4">
+          ${formattedManifesto}
+                </div>
+        <div class="grid gap-4 md:grid-cols-2">
+          <button id="accept-role-btn" class="btn px-6 py-4 rounded-full bg-gradient-to-r from-cyan-400 to-sky-500 font-semibold">
+            I Accept This Role
+          </button>
+          <button id="restart-btn" class="btn px-6 py-4 rounded-full bg-white/5 border border-cyan-200/40 font-semibold text-cyan-100">
+            Start Over
+          </button>
+        </div>
+        `;
+      document.getElementById('accept-role-btn').onclick = () => {
+        navigator.clipboard.writeText(state.manifesto).then(() => alert('Manifesto copied!'));
+        sendManifestoEmail(state.manifesto);
+      };
+      document.getElementById('restart-btn').onclick = () => {
+        setState({ screen: 'landing', name: '', role: '', selectedStyle: null, manifesto: '', emailSent: false });
+      };
+    }
+
+    function renderDeclined() {
+      appEl.innerHTML = `
+        <h2 class="text-4xl font-bold">A Gentle Bow Out</h2>
+        <p class="text-white/70 max-w-2xl mx-auto">
+          Thank you, beloved ${state.name || 'friend'}. Your honesty is heroic, and ${BABY_NAME} still thinks you’re legendary.
+        </p>
+        <button id="restart" class="btn mt-6 px-6 py-4 rounded-full bg-white/5 border border-cyan-200/40 text-cyan-100">Start Over</button>
+      `;
+      document.getElementById('restart').onclick = () => {
+        setState({ screen: 'landing', name: '', role: '', manifesto: '', emailSent: false });
+      };
+    }
+
+    async function generateManifesto(styleObj) {
+      const roleTitle = state.role || 'Godparent';
+      const systemPrompt = `You are The Godparent Manifesto Generator, a witty and heartwarming AI.
+You are writing a short (under 120 words), funny yet sincere vow for ${state.name}, who is a ${roleTitle}, and their godchild ${BABY_NAME}.
+The selected style is "${styleObj.name}". ${styleGuidance[styleObj.name] || ''} Reference their title "${roleTitle}" at least once. Keep it joyful, modern, and shareable. No bullet points, just a tight paragraph.`;
+
+      const userPrompt = `Write ${roleTitle} ${state.name}'s "Godparent Manifesto" in the voice of ${styleObj.name} for ${BABY_NAME}.`;
+
+        const payload = {
+        contents: [{ parts: [{ text: userPrompt }] }],
+        systemInstruction: { parts: [{ text: systemPrompt }] }
+      };
+
+      if (!API_KEY) {
+        return styleObj.template(state.name, state.role || 'Godparent');
+      }
+
+      const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+        throw new Error(`API error ${response.status}`);
+      }
+
+      const data = await response.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      if (!text) {
+        throw new Error('Empty response from Gemini');
+      }
+      return text;
+    }
+
+    function formatManifesto(text) {
+      return text
+        .split(/\n+/)
+        .map(segment => segment.trim())
+        .filter(Boolean)
+        .map(paragraph => `<p class="mb-4 last:mb-0">${paragraph}</p>`)
+        .join('');
+    }
+
+    function sendManifestoEmail(manifestoText) {
+      if (!state.email || state.emailSent) return;
+      const subject = encodeURIComponent(`${state.role || 'Godparent'} Manifesto for ${BABY_NAME}`);
+      const bodyContent = formatEmailBody(manifestoText);
+      const body = encodeURIComponent(bodyContent);
+      window.location.href = `mailto:${state.email}?subject=${subject}&body=${body}`;
+      state.emailSent = true;
+    }
+
+    function formatEmailBody(manifestoText) {
+      const intro = `Hi ${state.name || 'Godparent'},`;
+      const mission = `We’re thrilled you accepted the sacred role of ${state.role || 'Godparent'} for ${BABY_NAME}.`;
+      const manifestoHeader = `Here is your personal manifesto as ${state.selectedStyle?.name || 'Godparent'}:`;
+      const divider = '----------------------------------------';
+      const footer = `Feel free to share this vow or tuck it somewhere special.\n\nLove,\nThe Godparent Manifesto Generator ✨`;
+      return `${intro}\n\n${mission}\n\n${manifestoHeader}\n${divider}\n${manifestoText}\n${divider}\n\n${footer}`;
+    }
+
+    createSparkles();
+    render();
+</script>
+</body>
+</html>
+

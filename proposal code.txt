@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Godparent Manifesto Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #60a5fa; /* Baby Blue (Blue-400) */
+            --secondary-color: #22d3ee; /* Cyan (Cyan-400) */
+            --text-color: #1f2937;
+            --bg-color: #f0f9ff; /* Very Light Sky Blue */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+        }
+        .manifesto-card {
+            max-width: 768px;
+            width: 100%;
+            background-color: white;
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            padding: 2rem;
+            transition: all 0.5s ease-in-out;
+            min-height: 400px;
+        }
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: 700;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+        .btn-primary:hover {
+            background-color: #3b82f6; /* Darker Blue */
+            transform: translateY(-1px);
+        }
+        .btn-secondary {
+            background-color: var(--secondary-color);
+            color: white;
+            font-weight: 700;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+        .btn-secondary:hover {
+            background-color: #06b6d4; /* Darker Cyan */
+            transform: translateY(-1px);
+        }
+        .loading-animation {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid var(--secondary-color);
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+<div id="app" class="manifesto-card flex flex-col items-center justify-center text-center">
+    <!-- Content will be rendered here by JavaScript -->
+</div>
+
+<script>
+    const API_KEY = ""; // Provided by environment
+    const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; // Provided by environment
+    const MODEL_NAME = "gemini-2.5-flash-preview-09-2025";
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
+    const BABY_NAME = "Rhythm";
+
+    let appState = 'proposal'; // 'proposal', 'styleSelection', 'generating', 'manifesto', 'declined'
+    let godparentName = ''; // State variable for the godparent's name
+    let manifestoContent = '';
+    let selectedStyle = '';
+
+    const godparentStyles = [
+        { name: "The Fun One", description: "Vows to prioritize laughter, ice cream, and spontaneous adventures." },
+        { name: "The Wise Mentor", description: "Vows to offer life advice, support big dreams, and teach critical thinking." },
+        { name: "The Spoiler", description: "Vows to secretly buy all the best toys, skip the rules, and provide endless treats." },
+        { name: "The Secret Keeper", description: "Vows to be the trusted confidant, the guardian of secrets, and a non-judgmental ear." },
+        { name: "The Emergency Contact", description: "Vows to show up immediately, provide comfort, and always have a plan (and snacks)." }
+    ];
+
+    // --- Utility Functions ---
+
+    function getSystemPrompt(style) {
+        // Updated prompt for short, funny, and loving vows (under 100 words)
+        return `You are The Godparent Manifesto Generator, a friendly, witty, and heartwarming AI. Your task is to write a personalized 'Godparent Manifesto' (vows) for the new godparent, ${godparentName}, and their godchild, '${BABY_NAME}'.
+
+The godparent has selected the style: "${style}".
+
+The manifesto must be **short (under 100 words)**, funny, and filled with love. Structure it as a series of specific, loving, and slightly humorous promises. The goal is heartwarming brevity. Do not use markdown headers or formatting besides paragraphs.`;
+    }
+
+    // --- State and Rendering ---
+
+    function updateState(newState, data = {}) {
+        appState = newState;
+        // Reset name if starting over from decline screen
+        if (newState === 'proposal' && data.name === '') {
+            godparentName = ''; 
+        }
+        if (data.manifesto) manifestoContent = data.manifesto;
+        if (data.style) selectedStyle = data.style;
+        renderApp();
+    }
+
+    function renderApp() {
+        const appDiv = document.getElementById('app');
+        appDiv.innerHTML = '';
+
+        switch (appState) {
+            case 'proposal':
+                renderProposalScreen(appDiv);
+                break;
+            case 'styleSelection':
+                renderStyleSelectionScreen(appDiv);
+                break;
+            case 'generating':
+                renderGeneratingScreen(appDiv);
+                break;
+            case 'manifesto':
+                renderManifestoScreen(appDiv);
+                break;
+            case 'declined':
+                renderDeclinedScreen(appDiv);
+                break;
+        }
+    }
+
+    // --- Screen Renderers ---
+
+    function renderProposalScreen(container) {
+        container.classList.remove('justify-start');
+        container.classList.add('justify-center');
+        container.innerHTML = `
+            <div class="text-6xl mb-6 animate-pulse" style="color: var(--secondary-color)">✨</div>
+            <h1 class="text-4xl font-extrabold text-gray-800 mb-4">A Question of Destiny...</h1>
+            <p class="text-xl text-gray-600 mb-6">
+                Will you accept the sacred (and hilarious) duty of becoming Godparent to our sweet little ${BABY_NAME}?
+            </p>
+            
+            <div class="mb-8 w-full max-w-sm">
+                <label for="godparent-name" class="block text-base font-semibold text-gray-700 mb-2">
+                    Your Name (for the Vows):
+                </label>
+                <input type="text" id="godparent-name" value="${godparentName}" placeholder="E.g., Auntie Sarah" 
+                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-secondary-color focus:border-secondary-color transition duration-150 shadow-sm text-center" />
+            </div>
+
+            <div class="flex space-x-6">
+                <button id="btn-yes" class="btn-primary px-8 py-3 rounded-full text-lg shadow-lg">
+                    YES! It is my calling.
+                </button>
+                <button id="btn-decline" class="bg-gray-200 text-gray-700 font-bold px-8 py-3 rounded-full text-lg shadow-lg hover:bg-gray-300 transition duration-300">
+                    Decline Politely
+                </button>
+            </div>
+        `;
+        
+        document.getElementById('btn-yes').addEventListener('click', () => {
+            const nameInput = document.getElementById('godparent-name');
+            const name = nameInput.value.trim();
+            if (name) {
+                godparentName = name; // Store the name globally
+                updateState('styleSelection');
+            } else {
+                alertMessage("Please enter your name before accepting!", 'error');
+                nameInput.focus();
+            }
+        });
+
+        document.getElementById('btn-decline').addEventListener('click', () => {
+            const nameInput = document.getElementById('godparent-name');
+            const name = nameInput.value.trim();
+            godparentName = name || 'Friend'; // Use 'Friend' if no name is entered for the decline message
+            updateState('declined');
+        });
+    }
+
+    function renderDeclinedScreen(container) {
+        container.classList.remove('justify-start');
+        container.classList.add('justify-center');
+        container.innerHTML = `
+            <div class="text-6xl mb-6" style="color: #ef4444">😔</div>
+            <h1 class="text-4xl font-extrabold text-gray-800 mb-4">A Truly Understood Decision</h1>
+            <p class="text-xl text-gray-600 mb-6">
+                Thank you so much, ${godparentName}. We completely understand and respect your decision. Being a godparent is a huge commitment, and we appreciate your honesty and thoughtfulness.
+            </p>
+            <p class="text-lg text-gray-500 mb-8">
+                Your place in ${BABY_NAME}'s life as a beloved family member/friend is irreplaceable, regardless of title. We're sending you all our love!
+            </p>
+            <button onclick="updateState('proposal', { name: '' })" class="bg-gray-400 text-white font-bold px-6 py-3 rounded-full text-lg shadow-lg hover:bg-gray-500 transition duration-300">
+                Start Over (Just in Case!)
+            </button>
+        `;
+    }
+
+    function renderStyleSelectionScreen(container) {
+        container.classList.remove('justify-center');
+        container.classList.add('justify-start');
+        container.innerHTML = `
+            <h2 class="text-3xl font-extrabold text-gray-800 mb-2 w-full">Welcome, ${godparentName}!</h2>
+            <p class="text-lg text-gray-600 mb-8 w-full">
+                Now, choose your official title. Select the "Godparent Style" that best defines your sacred commitment to ${BABY_NAME}.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full" id="style-grid">
+                <!-- Buttons generated below -->
+            </div>
+        `;
+
+        const grid = document.getElementById('style-grid');
+        godparentStyles.forEach(style => {
+            const button = document.createElement('button');
+            button.className = 'btn-secondary flex flex-col items-center p-4 rounded-xl shadow-md text-left transition duration-300 transform hover:scale-[1.02]';
+            button.innerHTML = `
+                <span class="text-xl font-bold self-start">${style.name}</span>
+                <span class="text-sm font-normal opacity-90 self-start mt-1">${style.description}</span>
+            `;
+            button.addEventListener('click', () => {
+                updateState('generating', { style: style.name });
+                generateManifesto(style.name);
+            });
+            grid.appendChild(button);
+        });
+    }
+
+    function renderGeneratingScreen(container) {
+        container.classList.remove('justify-start');
+        container.classList.add('justify-center');
+        container.innerHTML = `
+            <div class="loading-animation mb-6"></div>
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">
+                Drafting the Godparent Manifesto...
+            </h2>
+            <p class="text-lg text-gray-600">
+                The Gemini AI is channeling the sacred vows of **${selectedStyle}** from **${godparentName}** for ${BABY_NAME}.
+            </p>
+        `;
+    }
+
+    function renderManifestoScreen(container) {
+        container.classList.remove('justify-center');
+        container.classList.add('justify-start');
+        container.innerHTML = `
+            <div class="w-full">
+                <h2 class="text-4xl font-extrabold text-gray-800 mb-2 text-center" style="color: var(--primary-color)">
+                    The Official Manifesto of ${selectedStyle}
+                </h2>
+                <h3 class="text-xl font-medium text-gray-600 mb-8 text-center">
+                    A Solemn Vow from ${godparentName} to ${BABY_NAME}
+                </h3>
+                <div class="bg-gray-50 p-6 rounded-xl border-t-4 border-b-4 text-gray-700 text-left whitespace-pre-wrap leading-relaxed shadow-inner" style="border-color: var(--primary-color)">
+                    ${manifestoContent}
+                </div>
+                <button onclick="copyManifesto()" class="btn-primary w-full mt-8 py-3 rounded-xl text-lg shadow-lg">
+                    Copy Manifesto to Clipboard
+                </button>
+            </div>
+        `;
+    }
+
+    // --- API and Logic ---
+
+    async function generateManifesto(style) {
+        const systemInstruction = getSystemPrompt(style);
+        const userQuery = `Generate the Godparent Manifesto for the style '${style}'. The godchild's name is ${BABY_NAME}, and the godparent's name is ${godparentName}.`;
+
+        const payload = {
+            contents: [{ parts: [{ text: userQuery }] }],
+            systemInstruction: { parts: [{ text: systemInstruction }] },
+        };
+
+        let response = null;
+        let result = null;
+        let attempt = 0;
+        const maxRetries = 5;
+
+        while (attempt < maxRetries) {
+            try {
+                // Fetch request setup
+                const fetchPromise = fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                // Wait for the fetch call
+                response = await fetchPromise;
+
+                if (!response.ok) {
+                    // Check for common API errors (400-level) that aren't network related
+                    if (response.status >= 400 && response.status < 500) {
+                        const errorBody = await response.text();
+                        console.error(`Gemini API Client Error ${response.status}:`, errorBody);
+                        throw new Error(`API Client Error ${response.status}`);
+                    }
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                result = await response.json();
+                break; // Success, break the loop
+
+            } catch (error) {
+                // Log the specific error for debugging on mobile console
+                console.error(`Gemini API Request Attempt ${attempt + 1} failed:`, error.message);
+                
+                // If it's a client error, stop retrying immediately
+                if (error.message.startsWith('API Client Error')) {
+                    attempt = maxRetries; // Force exit
+                    break;
+                }
+
+                attempt++;
+                if (attempt < maxRetries) {
+                    const delay = Math.pow(2, attempt) * 1000;
+                    // Exponential backoff delay
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                } else {
+                    // All retries failed, log final error and exit the loop
+                    console.error("All retries failed. Giving up.");
+                }
+            }
+        }
+
+        // Final result processing
+        if (result && result.candidates && result.candidates.length > 0 && result.candidates[0].content.parts.length > 0) {
+            const text = result.candidates[0].content.parts[0].text;
+            updateState('manifesto', { manifesto: text, style: style });
+        } else {
+            // Determine a clearer error message based on why it failed
+            let finalErrorMessage = "ERROR: Failed to generate manifesto after multiple attempts. The AI server may be unreachable. Please try again later.";
+
+            if (response && response.status >= 400 && response.status < 500) {
+                finalErrorMessage = "ERROR: Failed to connect or validate API access. This often means the environment API key is missing or invalid. Please contact the developer to check the key.";
+            }
+
+            updateState('manifesto', {
+                manifesto: finalErrorMessage,
+                style: style
+            });
+        }
+    }
+
+    function copyManifesto() {
+        const textToCopy = `The Official Manifesto of ${selectedStyle}\n\nA Solemn Vow from ${godparentName} to ${BABY_NAME}\n\n${manifestoContent}`;
+        // Use document.execCommand('copy') for reliable clipboard access in iframes
+        const tempTextArea = document.createElement('textarea');
+        tempTextArea.value = textToCopy;
+        document.body.appendChild(tempTextArea);
+        tempTextArea.select();
+        try {
+            document.execCommand('copy');
+            alertMessage("Copied to clipboard!", 'success');
+        } catch (err) {
+            console.error('Failed to copy text: ', err);
+            alertMessage("Failed to copy. Please select and copy manually.", 'error');
+        }
+        document.body.removeChild(tempTextArea);
+    }
+
+    // Custom Alert/Message Box Function (to replace window.alert)
+    function alertMessage(message, type) {
+        const existingAlert = document.getElementById('custom-alert');
+        if (existingAlert) existingAlert.remove();
+
+        const alertDiv = document.createElement('div');
+        alertDiv.id = 'custom-alert';
+        alertDiv.className = `fixed bottom-4 right-4 p-4 rounded-lg shadow-xl text-white font-semibold z-50 transition-all duration-300 transform translate-y-0`;
+
+        if (type === 'success') {
+            alertDiv.style.backgroundColor = 'var(--secondary-color)'; // Using secondary color (Cyan) for success
+        } else {
+            alertDiv.style.backgroundColor = '#ef4444'; // Red for error
+        }
+
+        alertDiv.textContent = message;
+        document.body.appendChild(alertDiv);
+
+        setTimeout(() => {
+            alertDiv.style.transform = 'translateY(100%)';
+            setTimeout(() => alertDiv.remove(), 300);
+        }, 3000);
+    }
+
+    // Initialize the application
+    window.onload = renderApp;
+</script>
+
+</body>
+</html>
